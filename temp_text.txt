@@ -1,0 +1,320 @@
+import 'package:flutter/material.dart';
+import 'package:omla/controller/api_service.dart';
+import 'package:omla/core/const/app_color.dart';
+import 'package:omla/core/const/app_test_style.dart';
+import 'package:omla/model/model.dart';
+// استدعي الملفات تبعتك هون
+// import 'package:omla/data/models/rate_model.dart';
+// import 'package:omla/data/services/api_service.dart';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  // متغيرات التحكم بالمدخلات والعملات
+  final TextEditingController _amountController = TextEditingController(
+    text: "1000",
+  );
+  String _sourceCurrency = "JOD";
+  String _targetCurrency = "USD";
+
+  Rate? _rateData;
+  bool _isLoading = true;
+  String _errorMessage = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRates();
+  }
+
+  // جلب البيانات من الـ API
+  Future<void> _loadRates() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = "";
+      });
+      // استدعاء الـ ApiService اللي عملناه سابقاً
+      final data = await APIService().fetchExchangeRates();
+      setState(() {
+        _rateData = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  // دالة حساب التحويل الاعتماد على الـ Base URL (USD)
+  double _calculateConversion() {
+    if (_rateData == null) return 0.0;
+
+    double amount = double.tryParse(_amountController.text) ?? 0.0;
+    if (amount == 0.0) return 0.0;
+
+    // جلب أسعار الصرف بالنسبة للدولار
+    int sourceRate = _rateData!.conversionRates[_sourceCurrency] ?? 1;
+    int targetRate = _rateData!.conversionRates[_targetCurrency] ?? 1;
+
+    // المعادلة: الحجم المالي * (العملة المستهدفة / العملة الحالية)
+    return amount * (targetRate / sourceRate);
+  }
+
+  // دالة لحساب سعر الصرف المباشر بين العملتين للعرض في الأسفل
+  String _getLiveRateString() {
+    if (_rateData == null) return "1 $_sourceCurrency = 0.00 $_targetCurrency";
+    double sourceRate = _rateData!.conversionRates[_sourceCurrency] ?? 1.0;
+    int targetRate = _rateData!.conversionRates[_targetCurrency] ?? 1;
+    double liveRate = targetRate / sourceRate;
+    return "1 $_sourceCurrency = ${liveRate.toStringAsFixed(4)} $_targetCurrency";
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // قائمة العملات المتاحة بناءً على الـ API، إذا لم تجهز بعد نضع قيم افتراضية
+    List<String> currencyList =
+        _rateData != null
+            ? _rateData!.conversionRates.keys.toList()
+            : ['USD', 'JOD', 'EUR', 'AED', 'SAR'];
+
+    return Scaffold(
+      backgroundColor: AppColor.backgroundColor,
+      appBar: AppBar(
+        backgroundColor: AppColor.appBarColor,
+        title: const Text("Omla", style: AppTestStyle.appBarTitleTextStyle),
+        leading: Padding(
+          padding: const EdgeInsets.all(1),
+          child: Image.asset(
+            "assets/images/logo_trans.png",
+            width: 100,
+            height: 100,
+            fit: BoxFit.cover,
+          ),
+        ),
+        actions: [
+          IconButton(
+            onPressed: _loadRates, // إعادة التحديث عند الضغط
+            icon: Icon(Icons.refresh, color: AppColor.appBarTitleColor),
+          ),
+        ],
+      ),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _errorMessage.isNotEmpty
+              ? Center(
+                child: Text(
+                  _errorMessage,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              )
+              : Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 32,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    spacing: 16,
+                    children: [
+                      // وقت التحديث من الـ API
+                      Text(
+                        "Last Update: ${_rateData?.timeLastUpdateUtc.split("+")[0] ?? ""}",
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
+
+                      // بطاقة العملة المراد التحويل منها (Source Card)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColor.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        height: 174,
+                        width: double.infinity,
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "SOURCE AMOUNT",
+                                    style: AppTestStyle.sourceAmountTextStyle,
+                                  ),
+                                  DropdownButton<String>(
+                                    value: _sourceCurrency,
+                                    items:
+                                        currencyList.map((String value) {
+                                          return DropdownMenuItem<String>(
+                                            value: value,
+                                            child: Text(value),
+                                          );
+                                        }).toList(),
+                                    onChanged: (newValue) {
+                                      setState(() {
+                                        _sourceCurrency = newValue!;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                spacing: 10,
+                                children: [
+                                  Text(
+                                    _sourceCurrency,
+                                    style:
+                                        AppTestStyle.sourceAmountMoneyTextStyle,
+                                  ),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _amountController,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      style: AppTestStyle.moneyTextStyle,
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        hintText: "0.00",
+                                      ),
+                                      onChanged: (value) {
+                                        setState(
+                                          () {},
+                                        ); // إعادة البناء لتحديث النتيجة فوراً أثناء الكتابة
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _sourceCurrency, // هنا يمكنك لاحقاً عمل Map لأسماء العملات الكاملة
+                                style: AppTestStyle.sourceAmountTextStyle,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // بطاقة العملة المستهدفة (Target Card)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColor.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        height: 174,
+                        width: double.infinity,
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "CONVERTED AMOUNT",
+                                    style: AppTestStyle.sourceAmountTextStyle,
+                                  ),
+                                  DropdownButton<String>(
+                                    value: _targetCurrency,
+                                    items:
+                                        currencyList.map((String value) {
+                                          return DropdownMenuItem<String>(
+                                            value: value,
+                                            child: Text(value),
+                                          );
+                                        }).toList(),
+                                    onChanged: (newValue) {
+                                      setState(() {
+                                        _targetCurrency = newValue!;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                spacing: 10,
+                                children: [
+                                  Text(
+                                    _targetCurrency,
+                                    style:
+                                        AppTestStyle.sourceAmountMoneyTextStyle,
+                                  ),
+                                  Text(
+                                    _calculateConversion().toStringAsFixed(2),
+                                    style: AppTestStyle.moneyTextStyle,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _targetCurrency,
+                                style: AppTestStyle.sourceAmountTextStyle,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // شريط الـ Live Rate في الأسفل
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColor.white,
+                          borderRadius: BorderRadius.circular(9999),
+                        ),
+                        height: 66,
+                        width: double.infinity,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          spacing: 8,
+                          children: [
+                            Icon(Icons.spoke, color: AppColor.secondaryColor),
+                            Text(
+                              "Live Rate:",
+                              style: AppTestStyle.live.copyWith(
+                                color: AppColor.secondaryColor,
+                              ),
+                            ),
+                            Text(
+                              _getLiveRateString(),
+                              style: AppTestStyle.live,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+    );
+  }
+}

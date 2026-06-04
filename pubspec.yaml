@@ -1,0 +1,52 @@
+name: omla
+description: "A new Flutter project."
+publish_to: 'none' 
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  
+  cupertino_icons: ^1.0.8
+  http: ^1.6.0
+  provider: ^6.1.5+1
+  flutter_dotenv: ^6.0.1
+  flutter_launcher_icons: ^0.14.4
+
+dev_dependencies:
+  flutter_launcher_icons: "^0.14.4"
+  
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/logo.png"
+  min_sdk_android: 21
+
+flutter:
+
+  uses-material-design: true
+
+
+  assets:
+    - assets/images/logo_trans.png
+    - assets/images/logo.png
+    - .env
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter/Inter-VariableFont_opsz,wght.ttf
+        - asset: assets/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope/Manrope-VariableFont_wght.ttf
+  
